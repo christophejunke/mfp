@@ -15,8 +15,14 @@
 (defvar *music-pathname-type* "mp3"
   "File type for downloaded music files")
 
+(defvar *default-worker-count* 4
+  "Default worker count when creating temporary lparallel kernel.")
+
 (defvar *max-parallel-downloads* nil
-  "Max number of parallel downloads (nil for kernel worker count).")
+  "Max number of parallel downloads.
+
+   NIL means the current worker count of lparallel's *kernel*,
+   but if *kernel* is NIL, it means *default-worker-count*.")
 
 (defvar *naming-function* nil
   "Custom naming function with INDEX and TITLE that returns a string.")
@@ -151,7 +157,7 @@
     (if lparallel:*kernel*
         (fetch-map)
         (lparallel.kernel-util:with-temp-kernel
-            ((or *max-parallel-downloads* 4))
+            ((or *max-parallel-downloads* *default-worker-count*))
           (fetch-map)))))
 
 (defun update ()
