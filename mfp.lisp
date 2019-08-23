@@ -32,6 +32,7 @@
 (defun wrap-dynvars (function)
   (with-captured-bindings (rebind *path*
                                   *index-width*
+				  *naming-function*
                                   *music-pathname-type*)
     (lambda (&rest args)
       (rebind
