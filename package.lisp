@@ -6,6 +6,8 @@
         :alexandria
         :ppcre
         :lparallel)
+  (:import-from #:lparallel.kernel-util
+		#:with-temp-kernel)
   (:export #:*path*
            #:*rss-url*
            #:*index-width*
