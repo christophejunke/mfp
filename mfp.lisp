@@ -60,7 +60,7 @@
 (defmethod print-object ((e entry) stream)
   (prin1 `(entry ,(index e) ,(title e) ,(link e)) stream))
 
-(defun entry-pathname (entry)
+(defun path (entry)
   (labels
       ((merge-single-letters (splitted-string &aux stack result)
          (flet ((unstack (&aux (reversed (nreverse stack)))
@@ -91,7 +91,7 @@
 
 (defun download (entry &optional force)
   (when entry
-    (let ((file (entry-pathname entry)))
+    (let ((file (path entry)))
       (prog1 file
         (unless (and (probe-file file) (not force))
           (download-to-file (link entry) file force))))))

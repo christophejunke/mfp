@@ -10,10 +10,21 @@
            #:*mfp-rss-url*
            #:*music-pathname-type*
            #:*max-parallel-downloads*
+
+           ;; download
            #:download-to-file
            #:download
-           #:entry-pathname
+
+           ;; entries
+           #:path
+           #:index
+           #:title
+           #:link
+
+           ;; rss
            #:rss
            #:fetch-from-rss
+
+           ;; main
            #:download-from-rss
            #:update))
