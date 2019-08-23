@@ -22,6 +22,7 @@
            #:index
            #:title
            #:link
+	   #:filename
 
            ;; rss
            #:rss

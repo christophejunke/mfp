@@ -68,34 +68,34 @@
 (defmethod print-object ((e entry) stream)
   (prin1 `(entry ,(index e) ,(title e) ,(render-uri (link e) nil)) stream))
 
+(defun filename (index title &optional (index-width *index-width*))
+  (flet ((merge-single-letters (splitted-string &aux stack result)
+           (flet ((unstack (&aux (reversed (nreverse stack)))
+                    (setf stack nil)
+                    (if reversed
+			(push (apply #'concatenate 'string reversed) result)
+			result)))
+             (dolist (string splitted-string (nreverse (unstack)))
+               (if (= (length string) 1)
+                   (push string stack)
+                   (setf result (list* string (unstack))))))))
+    (format nil
+            "~v,'0d-~(~{~a~^-~}~)"
+            index-width
+            index
+            (merge-single-letters
+             (remove-if #'emptyp
+                        (split
+                         '(:alternation :non-word-char-class #\_)
+                         (regex-replace-all
+                          '(:sequence " + Untitled") title "")))))))
+
 (defun path (entry)
-  (labels
-      ((merge-single-letters (splitted-string &aux stack result)
-         (flet ((unstack (&aux (reversed (nreverse stack)))
-                  (setf stack nil)
-                  (if reversed
-                      (push (apply #'concatenate 'string reversed) result)
-                      result)))
-           (dolist (string splitted-string (nreverse (unstack)))
-             (if (= (length string) 1)
-                 (push string stack)
-                 (setf result (list* string (unstack)))))))
-       (name (index title)
-         (format nil
-                 "~v,'0d-~(~{~a~^-~}~)"
-                 *index-width*
-                 index
-                 (merge-single-letters
-                  (remove-if #'emptyp
-                             (split
-                              '(:alternation :non-word-char-class #\_)
-                              (regex-replace-all
-                               '(:sequence " + Untitled") title "")))))))
-    (merge-pathnames (make-pathname
-                      :name (funcall (or *naming-function* #'name)
-                                     (index entry) (title entry))
-                      :type *music-pathname-type*)
-                     *path*)))
+  (merge-pathnames (make-pathname
+		    :name (funcall (or *naming-function* #'filename)
+				   (index entry) (title entry))
+		    :type *music-pathname-type*)
+		   *path*))
 
 ;;;; DOWNLOAD ENTRY
 
