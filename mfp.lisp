@@ -144,7 +144,8 @@
                  (fetch))))
     (if lparallel:*kernel*
         (fetch-map)
-        (lparallel.kernel-util:with-temp-kernel (*max-parallel-downloads*)
+        (lparallel.kernel-util:with-temp-kernel
+            ((or *max-parallel-downloads* 4))
           (fetch-map)))))
 
 (defun update ()
