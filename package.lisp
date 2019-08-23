@@ -12,6 +12,7 @@
            #:*max-parallel-downloads*
            #:download-to-file
            #:download
+           #:entry-pathname
            #:rss
            #:fetch-from-rss
            #:download-from-rss
