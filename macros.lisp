@@ -8,8 +8,8 @@ For example, ensure a newly created thread uses the same
 implementations where dynamic variables are thread-local).
 
    (with-captured-bindings (rebind *standard-output*)
-     (bt:make-thread (lambda () 
-                       (rebind 
+     (bt:make-thread (lambda ()
+                       (rebind
                          (print :test)))))
 "
   (assert (every #'symbolp symbols))
