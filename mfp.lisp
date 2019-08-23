@@ -148,8 +148,9 @@
           (fetch-map)))))
 
 (defun update ()
-  (let ((existing (directory
-                   (merge-pathnames
-                    (make-pathname :name :wild :type *music-pathname-type*)
-                    *path*))))
+  (let ((existing
+         (directory
+          (merge-pathnames (make-pathname :name :wild
+                                          :type *music-pathname-type*)
+                           *path*))))
     (set-difference (download-from-rss) existing :test #'equalp)))
