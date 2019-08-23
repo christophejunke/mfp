@@ -25,11 +25,15 @@
    but if *kernel* is NIL, it means *default-worker-count*.")
 
 (defvar *naming-function* nil
-  "Custom naming function with INDEX and TITLE that returns a string.")
+  "Custom naming function for downloaded file.
+
+   Either NIL or a function called with INDEX and TITLE, that should
+   return a string to be used as a pathname's name.")
 
 ;;;; DYNAMIC BINDINGS ACROSS THREADS
 
 (defun wrap-dynvars (function)
+  "Capture bindings for variables that are used in worker threads."
   (with-captured-bindings (rebind *path*
                                   *index-width*
 				  *naming-function*
