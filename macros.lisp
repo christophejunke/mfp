@@ -3,14 +3,14 @@
 (defmacro with-captured-bindings ((rebinding-name &rest symbols) &body body)
   "Lexically capture dynamic bindings and rebind them in another context.
 
-For example, ensure a newly created thread uses the same
-*standard-output* as current thread, and not the global binding (in
-implementations where dynamic variables are thread-local).
+For example, capture standard output at closure creation and rebind it
+to captured value inside closure:
 
    (with-captured-bindings (rebind *standard-output*)
-     (bt:make-thread (lambda ()
-                       (rebind
-                         (print :test)))))
+     (lambda () (rebind (print :test))))
+
+This is useful in particular with threads when the dynamic environment
+is local to each thread.
 "
   (assert (every #'symbolp symbols))
   (with-gensyms (inner-body)
