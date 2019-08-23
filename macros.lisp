@@ -1,10 +1,22 @@
 (in-package :mfp)
 
 (defmacro with-captured-bindings ((rebinding-name &rest symbols) &body body)
+  "Lexically capture dynamic bindings and rebind them in another context.
+
+For example, ensure a newly created thread uses the same
+*standard-output* as current thread, and not the global binding (in
+implementations where dynamic variables are thread-local).
+
+   (with-captured-bindings (rebind *standard-output*)
+     (bt:make-thread (lambda () 
+                       (rebind 
+                         (print :test)))))
+"
   (assert (every #'symbolp symbols))
   (with-gensyms (inner-body)
     (if symbols
-        (loop for s in symbols
+        (loop
+           for s in symbols
            for c = (gensym)
            collect (list c s) into capture
            collect (list s c) into rebind
