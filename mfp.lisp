@@ -1,22 +1,3 @@
-(defpackage :mfp
-  (:use :cl
-        :puri
-        :lquery
-        :drakma
-        :alexandria
-        :ppcre
-        #+lparallel
-        :lparallel)
-  (:export #:*music-root*
-           #:*mfp-rss-url*
-           #:*music-pathname-type*
-           #:download-to-file
-           #:download
-           #:rss
-           #:fetch-from-rss
-           #:download-from-rss
-           #:update))
-
 (in-package :mfp)
 
 ;;;; CONFIGURATION
@@ -24,12 +5,24 @@
 (defvar *mfp-rss-url*
   "https://musicforprogramming.net/rss.php")
 
-(defvar *music-root*
+(defvar *path*
   (merge-pathnames #P"music/for-programming/" (user-homedir-pathname))
   "Directory for music storage.")
 
 (defvar *music-pathname-type* "mp3"
   "File type for downloaded music files")
+
+(defvar *max-parallel-downloads* nil
+  "Max number of parallel downloads (nil for kernel worker count).")
+
+;;;; DYNAMIC BINDINGS ACROSS THREADS
+
+(defun wrap-dynvars (function)
+  (with-captured-bindings (rebind *path*
+                                  *music-pathname-type*)
+    (lambda (&rest args)
+      (rebind
+       (apply function args)))))
 
 ;;;; DOWNLOAD
 
@@ -92,7 +85,7 @@
     (merge-pathnames (make-pathname
                       :name (name (index entry) (title entry))
                       :type *music-pathname-type*)
-                     *music-root*)))
+                     *path*)))
 
 ;;;; DOWNLOAD ENTRY
 
@@ -135,17 +128,19 @@
 ;;;; MAIN FUNCTIONS
 
 (defun download-from-rss ()
-  #+lparallel
-  (flet ((fetch-map () (pmap 'list #'download (fetch-from-rss))))
+  (flet ((fetch-map ()
+           (pmap 'list
+                 (wrap-dynvars #'download)
+                 :parts *max-parallel-downloads*
+                 (fetch-from-rss))))
     (if lparallel:*kernel*
         (fetch-map)
-        (lparallel.kernel-util:with-temp-kernel (8) (fetch-map))))
-  #-lparallel
-  (map 'list #'download (fetch-from-rss)))
+        (lparallel.kernel-util:with-temp-kernel (*max-parallel-downloads*)
+          (fetch-map)))))
 
 (defun update ()
   (let ((existing (directory
                    (merge-pathnames
                     (make-pathname :name :wild :type *music-pathname-type*)
-                    *music-root*))))
+                    *path*))))
     (set-difference (download-from-rss) existing :test #'equalp)))
