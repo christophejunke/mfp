@@ -66,7 +66,11 @@
                  :link (parse-uri link)))
 
 (defmethod print-object ((e entry) stream)
-  (prin1 `(entry ,(index e) ,(title e) ,(render-uri (link e) nil)) stream))
+  "Print an ENTRY readably."
+  (prin1 `(entry ,(index e)
+		 ,(title e)
+		 ,(render-uri (link e) nil))
+	 stream))
 
 (defun filename (index title &optional (index-width *index-width*))
   (flet ((merge-single-letters (splitted-string &aux stack result)
