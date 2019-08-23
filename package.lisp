@@ -24,7 +24,7 @@
 
            ;; rss
            #:rss
-           #:fetch-from-rss
+           #:fetch
 
            ;; main
            #:download-from-rss

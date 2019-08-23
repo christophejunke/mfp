@@ -120,7 +120,7 @@
 (defun rss ()
   ($ (initialize (http-request *rss-url*))))
 
-(defun fetch-from-rss ()
+(defun fetch ()
   ($ (initialize (http-request *rss-url*))
      (find "item")
      (combine ($ (find "item guid") (text) #'first-elt)
@@ -137,7 +137,7 @@
            (pmap 'list
                  (wrap-dynvars #'download)
                  :parts *max-parallel-downloads*
-                 (fetch-from-rss))))
+                 (fetch))))
     (if lparallel:*kernel*
         (fetch-map)
         (lparallel.kernel-util:with-temp-kernel (*max-parallel-downloads*)
