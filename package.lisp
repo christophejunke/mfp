@@ -11,6 +11,7 @@
            #:*index-width*
            #:*music-pathname-type*
            #:*max-parallel-downloads*
+           #:*naming-function*
 
            ;; download
            #:download-to-file

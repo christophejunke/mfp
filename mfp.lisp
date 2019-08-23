@@ -18,6 +18,9 @@
 (defvar *max-parallel-downloads* nil
   "Max number of parallel downloads (nil for kernel worker count).")
 
+(defvar *naming-function* nil
+  "Custom naming function with INDEX and TITLE that returns a string.")
+
 ;;;; DYNAMIC BINDINGS ACROSS THREADS
 
 (defun wrap-dynvars (function)
@@ -88,7 +91,8 @@
                               (regex-replace-all
                                '(:sequence " + Untitled") title "")))))))
     (merge-pathnames (make-pathname
-                      :name (name (index entry) (title entry))
+                      :name (funcall (or *naming-function* #'name)
+                                     (index entry) (title entry))
                       :type *music-pathname-type*)
                      *path*)))
 
