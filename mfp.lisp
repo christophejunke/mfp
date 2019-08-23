@@ -33,21 +33,22 @@
 
 ;;;; DOWNLOAD
 
-(defun download-to-file (uri target-file &optional force)
+(defun download-to-file (uri target-file &optional (if-exists :error))
   (with-open-file (file-stream (ensure-directories-exist target-file)
                                :element-type '(unsigned-byte 8)
                                :direction :output
-                               :if-exists (if force :supersede :error))
-    (prog1 (pathname file-stream)
-      (multiple-value-bind (body status headers reply stream closep msg)
-          (http-request uri :force-binary t :want-stream t)
-        (declare (ignore body status headers reply msg))
-        (unwind-protect (uiop:copy-stream-to-stream
-                         stream
-                         file-stream
-                         :element-type '(unsigned-byte 8))
-          (when closep
-            (close stream)))))))
+                               :if-exists if-exists)
+    (when file-stream
+      (prog1 (pathname file-stream)
+        (multiple-value-bind (body status headers reply stream closep msg)
+            (http-request uri :force-binary t :want-stream t)
+          (declare (ignore body status headers reply msg))
+          (unwind-protect (uiop:copy-stream-to-stream
+                           stream
+                           file-stream
+                           :element-type '(unsigned-byte 8))
+            (when closep
+              (close stream))))))))
 
 ;;;; MFP ENTRIES
 
@@ -102,8 +103,9 @@
   (when entry
     (let ((file (path entry)))
       (prog1 file
-        (unless (and (probe-file file) (not force))
-          (download-to-file (link entry) file force))))))
+        (download-to-file (link entry)
+                          file
+                          (if force :supersede nil))))))
 
 ;;;; PARSING
 
