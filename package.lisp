@@ -7,7 +7,8 @@
         :ppcre
         :lparallel)
   (:export #:*path*
-           #:*mfp-rss-url*
+           #:*rss-url*
+           #:*index-width*
            #:*music-pathname-type*
            #:*max-parallel-downloads*
 

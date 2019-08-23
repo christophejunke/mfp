@@ -2,12 +2,15 @@
 
 ;;;; CONFIGURATION
 
-(defvar *mfp-rss-url*
+(defvar *rss-url*
   "https://musicforprogramming.net/rss.php")
 
 (defvar *path*
   (merge-pathnames #P"music/for-programming/" (user-homedir-pathname))
   "Directory for music storage.")
+
+(defvar *index-width* 3
+  "Number of digits when printing an index")
 
 (defvar *music-pathname-type* "mp3"
   "File type for downloaded music files")
@@ -19,6 +22,7 @@
 
 (defun wrap-dynvars (function)
   (with-captured-bindings (rebind *path*
+                                  *index-width*
                                   *music-pathname-type*)
     (lambda (&rest args)
       (rebind
@@ -50,7 +54,7 @@
    (link :initarg :link :reader link)))
 
 (defun entry (index title link)
-  (check-type index (integer 1 10000))
+  (check-type index (integer 1))
   (check-type title string)
   (make-instance 'entry
                  :index index
@@ -58,7 +62,7 @@
                  :link (parse-uri link)))
 
 (defmethod print-object ((e entry) stream)
-  (prin1 `(entry ,(index e) ,(title e) ,(link e)) stream))
+  (prin1 `(entry ,(index e) ,(title e) ,(render-uri (link e) nil)) stream))
 
 (defun path (entry)
   (labels
@@ -74,7 +78,8 @@
                  (setf result (list* string (unstack)))))))
        (name (index title)
          (format nil
-                 "~2,'0d-~(~{~a~^-~}~)"
+                 "~v,'0d-~(~{~a~^-~}~)"
+                 *index-width*
                  index
                  (merge-single-letters
                   (remove-if #'emptyp
@@ -113,10 +118,10 @@
 ;;;; RSS
 
 (defun rss ()
-  ($ (initialize (http-request *mfp-rss-url*))))
+  ($ (initialize (http-request *rss-url*))))
 
 (defun fetch-from-rss ()
-  ($ (initialize (http-request *mfp-rss-url*))
+  ($ (initialize (http-request *rss-url*))
      (find "item")
      (combine ($ (find "item guid") (text) #'first-elt)
               ($ (find "title") (text) #'first-elt))
