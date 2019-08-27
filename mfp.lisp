@@ -6,7 +6,7 @@
   "https://musicforprogramming.net/rss.php")
 
 (defvar *path*
-  (merge-pathnames #P"music/for-programming/" (user-homedir-pathname))
+  (merge-pathnames #P"music/mfp/" (user-homedir-pathname))
   "Directory for music storage.")
 
 (defvar *index-width* 3
