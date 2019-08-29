@@ -12,7 +12,7 @@
 (defvar *index-width* 3
   "Number of digits when printing an index")
 
-(defvar *music-pathname-type* "mp3"
+(defvar *suffix* "mp3"
   "File type for downloaded music files")
 
 (defvar *default-worker-count* 4
@@ -30,27 +30,51 @@
    Either NIL or a function called with INDEX and TITLE, that should
    return a string to be used as a pathname's name.")
 
+;;;; ERRORS
+
+(define-condition request-failed (error)
+  ((status :initarg :status :accessor request-failed/status)
+   (message :initarg :message :accessor request-failed/message)
+   (uri :initarg :uri :accessor request-failed/uri))
+  (:report
+   (lambda (condition stream)
+     (with-slots (status message uri) condition
+       (format stream "request failed (~d): ~a - ~a" status message uri)))))
+
+;;;; LOGGING
+
+(defvar *info-lock*)
+
+(defun info (printed)
+  (prog1 printed
+    (with-lock-held (*info-lock*)
+      (print printed)
+      (finish-output))))
+
 ;;;; DOWNLOAD
 
+(defun call-with-http-stream (uri function)
+  (multiple-value-bind (body status headers reply stream closep message)
+      (http-request uri :force-binary t :want-stream t)
+    (declare (ignore body headers reply))
+    (unwind-protect (funcall function status stream message)
+      (when closep (close stream)))))
+
+(defmacro with-http-stream ((status stream message) uri &body body)
+  `(call-with-http-stream ,uri (lambda (,status ,stream ,message) ,@body)))
+
 (defun download-to-file (uri target-file &optional (if-exists :error))
-  (with-open-file (file-stream (ensure-directories-exist target-file)
-			       :element-type '(unsigned-byte 8)
-			       :direction :output
-			       :if-exists if-exists)
-    (when file-stream
-      (prog1 (pathname file-stream)
-	(multiple-value-bind (body status headers reply stream closep msg)
-	    (http-request uri :force-binary t :want-stream t)
-	  (declare (ignore body headers reply))
-	  (unwind-protect
-	       (if (= status 200)
-		   (uiop:copy-stream-to-stream
-		    stream
-		    file-stream
-		    :element-type '(unsigned-byte 8))
-		   (error "request failed (status ~d): ~a - ~a" status msg uri))
-	    (when closep
-	      (close stream))))))))
+  (let ((type '(unsigned-byte 8)))
+    (with-open-file (target (ensure-directories-exist target-file)
+                            :element-type type
+                            :direction :output
+                            :if-exists if-exists)
+      (when target
+        (prog1 (info (pathname target))
+          (with-http-stream (status source message) uri
+            (if (= status 200)
+                (copy-stream-to-stream source target :element-type type)
+                (error 'request-failed :status status :message message :uri uri))))))))
 
 ;;;; MFP ENTRIES
 
@@ -90,18 +114,20 @@
 	    index-width
 	    index
 	    (merge-single-letters
-	     (remove-if #'emptyp
-			(split
-			 '(:alternation :non-word-char-class #\_)
-			 (regex-replace-all
-			  '(:sequence " + Untitled") title "")))))))
+             (remove-if #'emptyp
+                        (split
+                         '(:alternation :non-word-char-class #\_)
+                         (regex-replace-all
+                          '(:sequence " + Untitled") title "")))))))
 
 (defun path (entry)
-  (merge-pathnames (make-pathname
-		    :name (funcall (or *naming-function* #'filename)
-				   (index entry) (title entry))
-		    :type *music-pathname-type*)
-		   *path*))
+  (merge-pathnames
+   (make-pathname :type *suffix*
+                  :name (funcall (or *naming-function*
+                                     #'filename)
+                                 (index entry)
+                                 (title entry)))
+   *path*))
 
 ;;;; DOWNLOAD ENTRY
 
@@ -109,9 +135,7 @@
   (when entry
     (let ((file (path entry)))
       (prog1 file
-	(download-to-file (link entry)
-			  file
-			  (if force :supersede nil))))))
+	(download-to-file (link entry) file (if force :supersede nil))))))
 
 ;;;; PARSING
 
@@ -147,9 +171,10 @@
 (defun workerize (function)
   "Wrap FUNCTION to be used in a worker thread."
   (with-captured-bindings (rebind *path*
+                                  *info-lock*
 				  *index-width*
 				  *naming-function*
-				  *music-pathname-type*
+				  *suffix*
 				  *standard-output*
 				  *error-output*)
     (lambda (&rest args)
@@ -159,24 +184,30 @@
 
 ;;;; MAIN FUNCTIONS
 
+(defun %parallel-download ()
+  (let ((*info-lock* (make-lock)))
+    (pmap 'list
+          (workerize #'download)
+          :parts *max-parallel-downloads*
+          (fetch))))
+
 (defun download-from-rss ()
-  (flet ((fetch-map ()
-	   (pmap 'list
-		 (workerize #'download)
-		 :parts *max-parallel-downloads*
-		 (fetch))))
-    (if lparallel:*kernel*
-	(fetch-map)
-	(with-temp-kernel ((or *max-parallel-downloads*
-			       *default-worker-count*))
-	  (fetch-map)))))
+  (if lparallel:*kernel*
+      (%parallel-download)
+      (with-temp-kernel ((or *max-parallel-downloads*
+                             *default-worker-count*))
+        (%parallel-download))))
+
+(defun existing-files ()
+  (directory
+   (merge-pathnames (make-pathname :name :wild :type *suffix*) *path*)))
 
 (defun update ()
-  (let ((existing
-	 (directory
-	  (merge-pathnames (make-pathname :name :wild
-					  :type *music-pathname-type*)
-			   *path*))))
-    (set-difference (download-from-rss) 
-		    existing
-		    :test #'equalp)))
+  (let ((existing (existing-files)))
+    (set-difference (download-from-rss) existing :test #'equalp)))
+
+;;;; MISC.
+
+(defun %delete-some-files (&optional (count 5))
+  "For tests (count = nil: deletes all)"
+  (mapc #'delete-file (subseq (shuffle (existing-files)) 0 count)))

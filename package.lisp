@@ -1,19 +1,28 @@
 (defpackage :mfp
   (:use :cl
         :puri
+        :bordeaux-threads
         :lquery
         :drakma
         :alexandria
         :ppcre
         :lparallel)
   (:import-from #:lparallel.kernel-util
-		#:with-temp-kernel)
+                #:with-temp-kernel)
+  (:import-from #:uiop
+                #:copy-stream-to-stream)
   (:export #:*path*
            #:*rss-url*
            #:*index-width*
            #:*music-pathname-type*
            #:*max-parallel-downloads*
            #:*naming-function*
+
+           ;; errors
+           #:request-failed
+           #:request-failed/message
+           #:request-failed/uri
+           #:request-failed/status
 
            ;; download
            #:download-to-file
@@ -24,7 +33,7 @@
            #:index
            #:title
            #:link
-	   #:filename
+           #:filename
 
            ;; rss
            #:rss
