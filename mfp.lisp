@@ -66,15 +66,15 @@
 (defun download-to-file (uri target-file &optional (if-exists :error))
   (let ((type '(unsigned-byte 8)))
     (with-open-file (target (ensure-directories-exist target-file)
-                            :element-type type
-                            :direction :output
-                            :if-exists if-exists)
+			    :element-type type
+			    :direction :output
+			    :if-exists if-exists)
       (when target
-        (prog1 (info (pathname target))
-          (with-http-stream (status source message) uri
-            (if (= status 200)
-                (copy-stream-to-stream source target :element-type type)
-                (error 'request-failed :status status :message message :uri uri))))))))
+	(prog1 (info (pathname target))
+	  (with-http-stream (status source message) uri
+	    (if (= status 200)
+		(copy-stream-to-stream source target :element-type type)
+		(error 'request-failed :status status :message message :uri uri))))))))
 
 ;;;; MFP ENTRIES
 
@@ -114,19 +114,19 @@
 	    index-width
 	    index
 	    (merge-single-letters
-             (remove-if #'emptyp
-                        (split
-                         '(:alternation :non-word-char-class #\_)
-                         (regex-replace-all
-                          '(:sequence " + Untitled") title "")))))))
+	     (remove-if #'emptyp
+			(split
+			 '(:alternation :non-word-char-class #\_)
+			 (regex-replace-all
+			  '(:sequence " + Untitled") title "")))))))
 
 (defun path (entry)
   (merge-pathnames
    (make-pathname :type *suffix*
-                  :name (funcall (or *naming-function*
-                                     #'filename)
-                                 (index entry)
-                                 (title entry)))
+		  :name (funcall (or *naming-function*
+				     #'filename)
+				 (index entry)
+				 (title entry)))
    *path*))
 
 ;;;; DOWNLOAD ENTRY
@@ -171,7 +171,7 @@
 (defun workerize (function)
   "Wrap FUNCTION to be used in a worker thread."
   (with-captured-bindings (rebind *path*
-                                  *info-lock*
+				  *info-lock*
 				  *index-width*
 				  *naming-function*
 				  *suffix*
@@ -187,20 +187,43 @@
 (defun %parallel-download ()
   (let ((*info-lock* (make-lock)))
     (pmap 'list
-          (workerize #'download)
-          :parts *max-parallel-downloads*
-          (fetch))))
+	  (workerize #'download)
+	  :parts *max-parallel-downloads*
+	  (fetch))))
 
 (defun download-from-rss ()
   (if lparallel:*kernel*
       (%parallel-download)
       (with-temp-kernel ((or *max-parallel-downloads*
-                             *default-worker-count*))
-        (%parallel-download))))
+			     *default-worker-count*))
+	(%parallel-download))))
 
-(defun existing-files ()
-  (directory
-   (merge-pathnames (make-pathname :name :wild :type *suffix*) *path*)))
+(macrolet ((def (name accessor)
+	     `(defun ,name (path)
+		(,accessor
+		 (osicat-posix:stat path)))))
+  (def @dev osicat-posix:stat-dev)
+  (def @gid osicat-posix:stat-gid)
+  (def @ino osicat-posix:stat-ino)
+  (def @uid osicat-posix:stat-uid)
+  (def @mode osicat-posix:stat-mode)
+  (def @rdev osicat-posix:stat-rdev)
+  (def @size osicat-posix:stat-size)
+  (def @atime osicat-posix:stat-atime)
+  (def @ctime osicat-posix:stat-ctime)
+  (def @mtime osicat-posix:stat-mtime)
+  (def @nlink osicat-posix:stat-nlink)
+  (def @blocks osicat-posix:stat-blocks)
+  (def @blksize osicat-posix:stat-blksize))
+
+(defun wildcard ()
+  (merge-pathnames (make-pathname :name :wild :type *suffix*) *path*))
+
+(defun existing-files (&optional (sort #'string-greaterp) (key #'namestring))
+  (let ((files (directory (wildcard))))
+    (etypecase sort
+      (null files)
+      (function (sort files sort :key key)))))
 
 (defun update ()
   (let ((existing (existing-files)))
