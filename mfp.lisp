@@ -51,6 +51,20 @@
       (print printed)
       (finish-output))))
 
+;;;; RSS
+
+(defun rss ()
+  ($ (initialize (http-request *rss-url*))))
+
+(defun fetch ()
+  ($ (initialize (http-request *rss-url*))
+     (find "item")
+     (combine ($ (find "item guid") (text) #'first-elt)
+	      ($ (find "title") (text) #'first-elt))
+     (map (lambda (list)
+	    (destructuring-bind (uri title) list
+	      (multiple-value-bind (index title) (parse-title title)
+		(entry index title uri)))))))
 ;;;; DOWNLOAD
 
 (defun call-with-http-stream (uri function)
@@ -150,21 +164,6 @@
 (defun parse-title (string)
   (register-groups-bind (number title) (*title-regex* string)
     (values (parse-integer number) title)))
-
-;;;; RSS
-
-(defun rss ()
-  ($ (initialize (http-request *rss-url*))))
-
-(defun fetch ()
-  ($ (initialize (http-request *rss-url*))
-     (find "item")
-     (combine ($ (find "item guid") (text) #'first-elt)
-	      ($ (find "title") (text) #'first-elt))
-     (map (lambda (list)
-	    (destructuring-bind (uri title) list
-	      (multiple-value-bind (index title) (parse-title title)
-		(entry index title uri)))))))
 
 ;;;; DYNAMIC BINDINGS ACROSS THREADS
 
