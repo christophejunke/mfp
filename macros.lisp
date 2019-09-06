@@ -15,17 +15,17 @@ is local to each thread.
   (assert (every #'symbolp symbols))
   (with-gensyms (inner-body)
     (if symbols
-        (loop
-           for s in symbols
-           for c = (gensym)
-           collect (list c s) into capture
-           collect (list s c) into rebind
-           finally
-             (return
-               `(let ,capture
-                  (macrolet ((,rebinding-name (&body ,inner-body)
-                               `(let ,',rebind ,@,inner-body)))
-                    ,@body))))
-        `(macrolet ((,rebinding-name (&body ,inner-body)
-                      `(progn ,@,inner-body)))
-           ,@body))))
+	(loop
+	   for s in symbols
+	   for _ = (gensym)
+	   collect (list _ s) into capture
+	   collect (list s _) into rebind
+	   finally
+	     (return
+	       `(let ,capture
+		  (macrolet ((,rebinding-name (&body ,inner-body)
+			       `(let ,',rebind ,@,inner-body)))
+		    ,@body))))
+	`(macrolet ((,rebinding-name (&body ,inner-body)
+		      `(progn ,@,inner-body)))
+	   ,@body))))
