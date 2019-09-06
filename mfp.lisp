@@ -65,6 +65,7 @@
 	    (destructuring-bind (uri title) list
 	      (multiple-value-bind (index title) (parse-title title)
 		(entry index title uri)))))))
+
 ;;;; DOWNLOAD
 
 (defun call-with-http-stream (uri function)
