@@ -40,19 +40,19 @@
 	   #:fetch
 
 	   ;; filters
-	   #:@dev
-	   #:@gid
-	   #:@ino
-	   #:@uid
-	   #:@mode
-	   #:@rdev
-	   #:@size
-	   #:@atime
-	   #:@ctime
-	   #:@mtime
-	   #:@nlink
-	   #:@blocks
-	   #:@blksize
+	   #:/dev
+	   #:/gid
+	   #:/ino
+	   #:/uid
+	   #:/mode
+	   #:/rdev
+	   #:/size
+	   #:/atime
+	   #:/ctime
+	   #:/mtime
+	   #:/nlink
+	   #:/blocks
+	   #:/blksize
 
 	   ;; main
 	   #:existing-files
