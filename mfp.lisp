@@ -198,25 +198,6 @@
 			     *default-worker-count*))
 	(%parallel-download))))
 
-;; TODO: extract from here
-(macrolet ((def (n f)
-             `(progn
-                (defun ,n (path) (,f (osicat-posix:stat path)))
-                (defvar ,n (function ,n)))))
-  (def /dev      osicat-posix:stat-dev      )
-  (def /gid      osicat-posix:stat-gid      )
-  (def /ino      osicat-posix:stat-ino      )
-  (def /uid      osicat-posix:stat-uid      )
-  (def /mode     osicat-posix:stat-mode     )
-  (def /rdev     osicat-posix:stat-rdev     )
-  (def /size     osicat-posix:stat-size     )
-  (def /atime    osicat-posix:stat-atime    )
-  (def /ctime    osicat-posix:stat-ctime    )
-  (def /mtime    osicat-posix:stat-mtime    )
-  (def /nlink    osicat-posix:stat-nlink    )
-  (def /blocks   osicat-posix:stat-blocks   )
-  (def /blksize  osicat-posix:stat-blksize  ))
-
 (defun wildcard ()
   (merge-pathnames (make-pathname :name :wild :type *suffix*) *path*))
 
