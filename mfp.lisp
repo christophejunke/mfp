@@ -144,8 +144,12 @@
 				 (title entry)))
    *path*))
 
-(defun entries ()
-  (fetch))
+(defvar *entries* nil)
+
+(defun entries (&key force)
+  (when (or force (not *entries*))
+    (setf *entries* (fetch)))
+  *entries*)
 
 ;;;; DOWNLOAD ENTRY
 
@@ -192,7 +196,7 @@
     (pmap 'list
 	  (workerize #'download)
 	  :parts *max-parallel-downloads*
-	  (entries))))
+	  (entries :force t))))
 
 (defun download-from-rss ()
   (if lparallel:*kernel*

@@ -34,6 +34,7 @@
 	   #:title
 	   #:link
 	   #:filename
+	   #:entries
 
 	   ;; rss
 	   #:rss
