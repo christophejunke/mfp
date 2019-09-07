@@ -170,8 +170,8 @@
 			      :end-anchor)))
 
 (defun parse-title (string)
-  (register-groups-bind (number title) (*title-regex* string)
-    (values (parse-integer number) title)))
+  (register-groups-bind ((#'parse-integer number) title) (*title-regex* string)
+    (values number title)))
 
 ;;;; DYNAMIC BINDINGS ACROSS THREADS
 
