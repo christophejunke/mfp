@@ -113,27 +113,48 @@
 		 ,(render-uri (link e) nil))
 	 stream))
 
+(defun concat (strings)
+  (flet ((length+ (n s) (+ n (length s))))
+    (loop
+       with result = (make-string (reduce #'length+ strings :initial-value 0))
+       for string in strings
+       for start = 0 then (+ start size)
+       for size = (length string)
+       do (replace result string :start1 start)
+       finally (return result))))
+
+(defun merge-single-letters (strings)
+  (let (stack result)
+    (flet ((unstack ()
+             (when stack
+               (push (concat (nreverse stack)) result)
+               (setf stack nil))
+             result))
+      (dolist (s strings (nreverse (unstack)))
+        (case (length s)
+          (0)
+          (1 (push s stack))
+          (t (setf result (list* s (unstack)))))))))
+
+(defun cleanup-title (title)
+  (merge-single-letters
+   (split '(:alternation :non-word-char-class #\_)
+          (regex-replace-all '(:sequence " + Untitled") title ""))))
+
 (defun filename (index title &optional (index-width *index-width*))
-  (flet ((merge-single-letters (splitted-string &aux stack result)
-	   (flet ((unstack (&aux (reversed (nreverse stack)))
-		    (setf stack nil)
-		    (if reversed
-			(push (apply #'concatenate 'string reversed) result)
-			result)))
-	     (dolist (string splitted-string (nreverse (unstack)))
-	       (if (= (length string) 1)
-		   (push string stack)
-		   (setf result (list* string (unstack))))))))
-    (format nil
-	    "~v,'0d-~(~{~a~^-~}~)"
-	    index-width
-	    index
-	    (merge-single-letters
-	     (remove-if #'emptyp
-			(split
-			 '(:alternation :non-word-char-class #\_)
-			 (regex-replace-all
-			  '(:sequence " + Untitled") title "")))))))
+  "Default formatter for *NAMING-FUNCTION*.
+
+   INDEX is a non-negative integer, TITLE is a string.
+
+   Format filename as \"000-title\", where 000 is the zero-padded
+   INDEX whose width is controlled by INDEX-WIDTH, and where \"title\"
+   is a dash-separated string based on the list of strings obtained by
+   calling CLEANUP-TITLE on TITLE."
+  (format nil
+          "~v,'0d-~(~{~a~^-~}~)"
+          index-width
+          index
+          (cleanup-title title)))
 
 (defun path (entry)
   (merge-pathnames

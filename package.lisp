@@ -59,6 +59,12 @@
    #:filename
    #:entries
 
+   ;; exported utils
+   #:concat
+   #:cleanup-title
+   #:download-to-file
+   #:merge-single-letters
+
    ;; rss
    #:rss
    #:fetch
