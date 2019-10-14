@@ -233,7 +233,8 @@
   (let ((files (directory (wildcard))))
     (etypecase sort
       (null files)
-      (function (sort files sort :key key)))))
+      ((or function symbol)
+       (sort files sort :key key)))))
 
 (defun update ()
   (let ((existing (existing-files)))
