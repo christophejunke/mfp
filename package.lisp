@@ -7,7 +7,8 @@
 	:lparallel
 	:lquery
 	:ppcre
-	:puri)
+	:puri
+        #:bricabrac.shell)
 
   (:import-from #:osicat-posix
 		#:stat
@@ -90,4 +91,11 @@
    #:download-from-rss
    #:update
 
+   ;; player
+   #:mpv
+   #:mpv-loop
+   #:mpv-loop-stop
+   #:mpv-loop-next
+   #:mpv-loop-volume
+   #:mpv-loop-current-file
    ))

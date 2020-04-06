@@ -6,9 +6,12 @@
 	       #:PURI
 	       #:LPARALLEL
 	       #:UIOP
-	       #:OSICAT)
+	       #:OSICAT
+
+               #:BRICABRAC) ;; only the shell part
 
   :components ((:file "package")
 	       (:file "macros")
 	       (:file "utils")
-	       (:file "mfp")))
+	       (:file "mfp")
+               (:file "player")))
