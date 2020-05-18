@@ -59,8 +59,8 @@
 (defun fetch ()
   ($ (initialize (http-request *rss-url*))
      (find "item")
-     (combine ($ (find "item guid") (text) #'first-elt)
-	      ($ (find "title") (text) #'first-elt))
+     (combine ($1 (find "item guid") (text))
+	      ($1 (find "title") (text)))
      (map (lambda (list)
 	    (destructuring-bind (uri title) list
 	      (multiple-value-bind (index title) (parse-title title)
