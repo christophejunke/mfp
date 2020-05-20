@@ -52,6 +52,7 @@
    #:download
 
    ;; entries
+   #:entry
    #:path
    #:index
    #:title
