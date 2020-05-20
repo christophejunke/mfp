@@ -123,18 +123,22 @@
        do (replace result string :start1 start)
        finally (return result))))
 
-(defun merge-single-letters (strings)
-  (let (stack result)
-    (flet ((unstack ()
-             (when stack
-               (push (concat (nreverse stack)) result)
-               (setf stack nil))
-             result))
-      (dolist (s strings (nreverse (unstack)))
-        (case (length s)
-          (0)
-          (1 (push s stack))
-          (t (setf result (list* s (unstack)))))))))
+(defun merge-single-letters (strings &aux stack result)
+  "Remove empty strings and concat consecutive strings of size 1.
+
+   (merge-single-letters '(\"ab\" \"c\" \"\" \"d\" \"e\" \"fg\"))
+    => (\"ab\" \"cde\" \"fg\")
+"
+  (flet ((unstack ()
+	   "Concat temporarily accumulated strings, push result"
+           (when stack
+	     (push (concat (nreverse (shiftf stack nil))) result))
+	   result))
+    (dolist (s strings (nreverse (unstack)))
+      (case (length s)
+	(0)
+	(1 (push s stack))
+	(t (setf result (list* s (unstack))))))))
 
 (defun cleanup-title (title)
   (merge-single-letters
