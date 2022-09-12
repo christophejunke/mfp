@@ -47,17 +47,28 @@
 
 (defun info (printed)
   (prog1 printed
-    (with-lock-held (*info-lock*)
-      (print printed)
-      (finish-output))))
+    (cond
+      ((boundp '*info-lock*)
+       (with-lock-held (*info-lock*)
+         (print printed)
+         (finish-output)))
+      (t (print printed)
+         (finish-output)))))
+
+;;;; HTTP
+
+(defun request-rss ()
+  (let ((*text-content-types* '(("application" . "xml")))
+        (*drakma-default-external-format* :utf-8))
+    (http-request *rss-url* :accept "application/rss+xml" )))
 
 ;;;; RSS
 
 (defun rss ()
-  ($ (initialize (http-request *rss-url*))))
+  ($ (initialize (request-rss))))
 
 (defun fetch ()
-  ($ (initialize (http-request *rss-url*))
+  ($ (initialize (request-rss))
      (find "item")
      (combine ($1 (find "item guid") (text))
 	      ($1 (find "title") (text)))
@@ -70,7 +81,7 @@
 
 (defun call-with-http-stream (uri function)
   (multiple-value-bind (body status headers reply stream closep message)
-      (http-request uri :force-binary t :want-stream t)
+      (http-request (render-uri uri nil) :force-binary t :want-stream t)
     (declare (ignore body headers reply))
     (unwind-protect (funcall function status stream message)
       (when closep (close stream)))))
@@ -78,7 +89,7 @@
 (defmacro with-http-stream ((status stream message) uri &body body)
   `(call-with-http-stream ,uri (lambda (,status ,stream ,message) ,@body)))
 
-(defun download-to-file (uri target-file &optional (if-exists :error))
+(defun download-to-file (uri target-file &key (if-exists :error))
   (let ((type '(unsigned-byte 8)))
     (with-open-file (target (ensure-directories-exist target-file)
 			    :element-type type
@@ -86,10 +97,16 @@
 			    :if-exists if-exists)
       (when target
 	(prog1 (info (pathname target))
-	  (with-http-stream (status source message) uri
-	    (if (= status 200)
-		(copy-stream-to-stream source target :element-type type)
-		(error 'request-failed :status status :message message :uri uri))))))))
+          (loop
+            (with-simple-restart (:retry "Retry connecting")
+              (return
+                (with-http-stream (status source message) uri
+                  (if (= status 200)
+                      (copy-stream-to-stream source target :element-type type)
+                      (error 'request-failed
+                             :status status
+                             :message message
+                             :uri uri)))))))))))
 
 ;;;; MFP ENTRIES
 
@@ -98,13 +115,23 @@
    (title :initarg :title :accessor title)
    (link :initarg :link :accessor link)))
 
+(defun parse-encoded-uri (link)
+  (multiple-value-bind (s u h o p q f) (parse-uri link)
+    (quri:make-uri :scheme s
+                   :userinfo u
+                   :host h
+                   :port o
+                   :path (percent:encode (subseq p 1))
+                   :query q
+                   :fragment f)))
+
 (defun entry (index title link)
   (check-type index (integer 1))
   (check-type title string)
   (make-instance 'entry
 		 :index index
 		 :title title
-		 :link (parse-uri link)))
+		 :link (parse-encoded-uri link)))
 
 (defmethod print-object ((e entry) stream)
   "Print an ENTRY readably."
@@ -182,7 +209,9 @@
   (when entry
     (let ((file (path entry)))
       (prog1 file
-	(download-to-file (link entry) file (if force :supersede nil))))))
+	(download-to-file (link entry) 
+                          file
+                          :if-exists (if force :supersede nil))))))
 
 ;;;; PARSING
 

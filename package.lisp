@@ -7,7 +7,7 @@
 	:lparallel
 	:lquery
 	:ppcre
-	:puri)
+	:quri)
 
   (:import-from #:osicat-posix
 		#:stat
