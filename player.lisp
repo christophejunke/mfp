@@ -1,15 +1,28 @@
 (in-package :mfp)
 
-(defun mpv-random-file ()
-  (random-elt (mfp:existing-files)))
+(defun mpv-random-file (&key (force-reload nil))
+  (let ((entry (random-elt (mfp:entries :force force-reload))))
+    (values (download entry) entry)))
 
 (defvar *mpv-process* nil)
 
-(defun play (&key (file (mpv-random-file)) (volume 50))
-  (with-terminal-options
-      ((:directory nil)
-       (:term :shell :when (not (osicat-posix:getenv "DISPLAY"))))
-    (terminal "mpv" (namestring file) "--volume" volume)))
+(defun play (&key file (volume 50) (jackp nil) entry)
+  (cond
+    (entry
+     (setf file (download entry)))
+    ((not file)
+     (multiple-value-setq (file entry) (mpv-random-file))))
+  (with-terminal-options ((:directory nil)
+                          (:title (format nil "[~d] ~a" (index entry) (title entry))
+                           :when entry)
+                          (:title (format nil "~a" (pathname-name file))
+                           :unless entry)
+                          (:term :shell
+                            :unless (osicat-posix:getenv "DISPLAY")))
+    (terminal "mpv"
+              (namestring file)
+              (format nil "--volume=~a" volume)
+              (and jackp "--ao=jack"))))
 
 (defun mpv (&key (file (mpv-random-file)) (volume 50) (global t gp) (wait nil wp))
   (flet ((play () (play :file file :volume volume)))

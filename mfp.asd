@@ -3,6 +3,7 @@
 	       #:DRAKMA
 	       #:CXML
 	       #:CL-PPCRE
+               #:PERCENT-ENCODING
 	       #:PURI
 	       #:LPARALLEL
 	       #:UIOP

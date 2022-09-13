@@ -47,30 +47,76 @@
 
 (defun info (printed)
   (prog1 printed
-    (with-lock-held (*info-lock*)
-      (print printed)
-      (finish-output))))
+    (flet ((do-it ()
+             (print printed)
+             (finish-output)))
+      (if (boundp '*info-lock*)
+          (with-lock-held (*info-lock*)
+            (do-it))
+          (do-it)))))
+
+;;;; ENTRY
+
+(defvar *xml-node* nil)
+
+(defclass entry ()
+  ((index :initarg :index :accessor index)
+   (title :initarg :title :accessor title)
+   (link :initarg :link :accessor link)))
+
+(defclass xml-entry (entry)
+  ((xml-node :initform *xml-node* :accessor xml-node)))
+
+(defun entry (index title link)
+  (check-type index (integer 1))
+  (check-type title string)
+  (make-instance (if *xml-node* 'xml-entry 'entry)
+                 :index index
+                 :title title
+                 :link (parse-uri link)))
+
+(defun fix-uri (uri)
+  (let ((uri (copy-uri uri)))
+    (setf (uri-path uri)
+	  (url-encode (uri-path uri)))))
 
 ;;;; RSS
 
+(defun rss-document ()
+  (let ((*text-content-types* (list* '("application" . "xml") *text-content-types*)))
+    (http-request *rss-url* :external-format-in :utf-8)))
+
 (defun rss ()
-  ($ (initialize (http-request *rss-url*))))
+  ($ (initialize (rss-document))))
 
 (defun fetch ()
-  ($ (initialize (http-request *rss-url*))
-     (find "item")
-     (combine ($1 (find "item guid") (text))
-	      ($1 (find "title") (text)))
-     (map (lambda (list)
-	    (destructuring-bind (uri title) list
-	      (multiple-value-bind (index title) (parse-title title)
-		(entry index title uri)))))))
+  ($ (initialize (rss-document))
+    (find "item")
+    (combine ($1)
+             ($1 (find "item guid") (text))
+             ($1 (find "title") (text)))
+    (map (lambda (list)
+           (destructuring-bind (*xml-node* uri title) list
+             (multiple-value-bind (index title) (parse-title title)
+               (entry index title uri)))))))
 
 ;;;; DOWNLOAD
 
+(defgeneric encode-uri (uri)
+  (:method ((str string))
+    (encode-uri (uri str)))
+  (:method ((uri puri:uri) &aux (uri (copy-uri uri)))
+    (prog1 uri
+      (flet ((encode (s) (percent-encoding:encode s)))
+	(destructuring-bind (keyword . path) (uri-parsed-path uri)
+	  (setf (uri-parsed-path uri)
+		(list keyword (mapcar #'encode path))))))))
+
 (defun call-with-http-stream (uri function)
   (multiple-value-bind (body status headers reply stream closep message)
-      (http-request uri :force-binary t :want-stream t)
+      (http-request uri :force-binary t :want-stream t
+			:external-format-in :utf-8
+			:external-format-out :utf-8)
     (declare (ignore body headers reply))
     (unwind-protect (funcall function status stream message)
       (when closep (close stream)))))
@@ -81,37 +127,43 @@
 (defun download-to-file (uri target-file &optional (if-exists :error))
   (let ((type '(unsigned-byte 8)))
     (with-open-file (target (ensure-directories-exist target-file)
-			    :element-type type
-			    :direction :output
-			    :if-exists if-exists)
+                            :element-type type
+                            :direction :output
+                            :if-exists if-exists)
       (when target
-	(prog1 (info (pathname target))
-	  (with-http-stream (status source message) uri
-	    (if (= status 200)
-		(copy-stream-to-stream source target :element-type type)
-		(error 'request-failed :status status :message message :uri uri))))))))
+        (prog1 (info (pathname target))
+          (loop
+            (file-position target 0)
+            (with-simple-restart (retry "Retry downloading")
+              (return
+                (with-http-stream (status source message) uri
+                  (if (= status 200)
+                      (copy-stream-to-stream source
+                                             target
+                                             :element-type type)
+                      (error 'request-failed
+                             :status status
+                             :message message
+                             :uri uri)))))))))))
+
+(defun make-periodic-retry (amount delay)
+  (lambda (error)
+    (when (plusp amount)
+      (warn "Caught error ~s, retrying in ~s seconds (~d more attempts)"
+            error delay amount)
+      (finish-output *error-output*)
+      (decf amount)
+      (sleep delay)
+      (invoke-restart (find-restart 'retry error)))))
 
 ;;;; MFP ENTRIES
-
-(defclass entry ()
-  ((index :initarg :index :accessor index)
-   (title :initarg :title :accessor title)
-   (link :initarg :link :accessor link)))
-
-(defun entry (index title link)
-  (check-type index (integer 1))
-  (check-type title string)
-  (make-instance 'entry
-		 :index index
-		 :title title
-		 :link (parse-uri link)))
 
 (defmethod print-object ((e entry) stream)
   "Print an ENTRY readably."
   (prin1 `(entry ,(index e)
-		 ,(title e)
-		 ,(render-uri (link e) nil))
-	 stream))
+                 ,(title e)
+                 ,(render-uri (link e) nil))
+         stream))
 
 (defun concat (strings)
   (flet ((length+ (n s) (+ n (length s))))
@@ -159,10 +211,10 @@
 (defun path (entry)
   (merge-pathnames
    (make-pathname :type *suffix*
-		  :name (funcall (or *naming-function*
-				     #'filename)
-				 (index entry)
-				 (title entry)))
+                  :name (funcall (or *naming-function*
+                                     #'filename)
+                                 (index entry)
+                                 (title entry)))
    *path*))
 
 (defvar *entries* nil)
@@ -176,19 +228,21 @@
 
 (defun download (entry &optional force)
   (when entry
-    (let ((file (path entry)))
-      (prog1 file
-	(download-to-file (link entry) file (if force :supersede nil))))))
+    (let ((pathname (path entry)))
+      (prog1 pathname
+        (download-to-file (link entry)
+                          pathname
+                          (and force :supersede))))))
 
 ;;;; PARSING
 
 (defvar *title-regex*
   (create-scanner `(:sequence :start-anchor
-			      "Episode "
-			      (:register (:regex "\\d+"))
-			      ": "
-			      (:register (:regex ".*"))
-			      :end-anchor)))
+                              "Episode "
+                              (:register (:regex "\\d+"))
+                              ": "
+                              (:register (:regex ".*"))
+                              :end-anchor)))
 
 (defun parse-title (string)
   (register-groups-bind ((#'parse-integer number) title) (*title-regex* string)
@@ -199,32 +253,37 @@
 (defun workerize (function)
   "Wrap FUNCTION to be used in a worker thread."
   (with-captured-bindings (rebind *path*
-				  *info-lock*
-				  *index-width*
-				  *naming-function*
-				  *suffix*
-				  *standard-output*
-				  *error-output*)
+                                  *info-lock*
+                                  *index-width*
+                                  *naming-function*
+                                  *suffix*
+                                  *standard-output*
+                                  *error-output*)
     (lambda (&rest args)
       (rebind
        (handler-case (apply function args)
-	 (error (e) (warn "caught error: ~a" e)))))))
+         (error (e) (warn "caught error: ~a" e)))))))
 
 ;;;; MAIN FUNCTIONS
+
+(defvar *parallel* t)
 
 (defun %parallel-download ()
   (let ((*info-lock* (make-lock)))
     (pmap 'list
-	  (workerize #'download)
-	  :parts *max-parallel-downloads*
-	  (entries :force t))))
+          (workerize #'download)
+          :parts *max-parallel-downloads*
+          (entries :force t))))
 
 (defun download-from-rss ()
-  (if lparallel:*kernel*
-      (%parallel-download)
-      (with-temp-kernel ((or *max-parallel-downloads*
-			     *default-worker-count*))
-	(%parallel-download))))
+  (cond
+    ((not *parallel*)
+     (map 'list #'download (entries :force t)))
+    (lparallel:*kernel*
+     (%parallel-download))
+    (t (with-temp-kernel ((or *max-parallel-downloads*
+                              *default-worker-count*))
+         (%parallel-download)))))
 
 (defun wildcard ()
   (merge-pathnames (make-pathname :name :wild :type *suffix*) *path*))
