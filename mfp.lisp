@@ -47,13 +47,13 @@
 
 (defun info (printed)
   (prog1 printed
-    (flet ((do-it ()
-             (print printed)
-             (finish-output)))
-      (if (boundp '*info-lock*)
-          (with-lock-held (*info-lock*)
-            (do-it))
-          (do-it)))))
+    (cond
+      ((boundp '*info-lock*)
+       (with-lock-held (*info-lock*)
+         (print printed)
+         (finish-output)))
+      (t (print printed)
+         (finish-output)))))
 
 ;;;; ENTRY
 
@@ -80,6 +80,13 @@
     (setf (uri-path uri)
 	  (url-encode (uri-path uri)))))
 
+;;;; HTTP
+
+(defun request-rss ()
+  (let ((*text-content-types* '(("application" . "xml")))
+        (*drakma-default-external-format* :utf-8))
+    (http-request *rss-url* :accept "application/rss+xml" )))
+
 ;;;; RSS
 
 (defun rss-document ()
@@ -87,7 +94,7 @@
     (http-request *rss-url* :external-format-in :utf-8)))
 
 (defun rss ()
-  ($ (initialize (rss-document))))
+  ($ (initialize (request-rss))))
 
 (defun fetch ()
   ($ (initialize (rss-document))
@@ -114,9 +121,7 @@
 
 (defun call-with-http-stream (uri function)
   (multiple-value-bind (body status headers reply stream closep message)
-      (http-request uri :force-binary t :want-stream t
-			:external-format-in :utf-8
-			:external-format-out :utf-8)
+      (http-request (render-uri uri nil) :force-binary t :want-stream t)
     (declare (ignore body headers reply))
     (unwind-protect (funcall function status stream message)
       (when closep (close stream)))))
@@ -124,7 +129,7 @@
 (defmacro with-http-stream ((status stream message) uri &body body)
   `(call-with-http-stream ,uri (lambda (,status ,stream ,message) ,@body)))
 
-(defun download-to-file (uri target-file &optional (if-exists :error))
+(defun download-to-file (uri target-file &key (if-exists :error))
   (let ((type '(unsigned-byte 8)))
     (with-open-file (target (ensure-directories-exist target-file)
                             :element-type type
@@ -175,18 +180,22 @@
        do (replace result string :start1 start)
        finally (return result))))
 
-(defun merge-single-letters (strings)
-  (let (stack result)
-    (flet ((unstack ()
-             (when stack
-               (push (concat (nreverse stack)) result)
-               (setf stack nil))
-             result))
-      (dolist (s strings (nreverse (unstack)))
-        (case (length s)
-          (0)
-          (1 (push s stack))
-          (t (setf result (list* s (unstack)))))))))
+(defun merge-single-letters (strings &aux stack result)
+  "Remove empty strings and concat consecutive strings of size 1.
+
+   (merge-single-letters '(\"ab\" \"c\" \"\" \"d\" \"e\" \"fg\"))
+    => (\"ab\" \"cde\" \"fg\")
+"
+  (flet ((unstack ()
+	   "Concat temporarily accumulated strings, push result"
+           (when stack
+	     (push (concat (nreverse (shiftf stack nil))) result))
+	   result))
+    (dolist (s strings (nreverse (unstack)))
+      (case (length s)
+	(0)
+	(1 (push s stack))
+	(t (setf result (list* s (unstack))))))))
 
 (defun cleanup-title (title)
   (merge-single-letters

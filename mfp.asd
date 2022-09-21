@@ -3,8 +3,8 @@
 	       #:DRAKMA
 	       #:CXML
 	       #:CL-PPCRE
+	       #:QURI
                #:PERCENT-ENCODING
-	       #:PURI
 	       #:LPARALLEL
 	       #:UIOP
 	       #:OSICAT

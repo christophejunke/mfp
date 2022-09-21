@@ -7,8 +7,8 @@
 	:lparallel
 	:lquery
 	:ppcre
-	:puri
-        #:bricabrac.shell)
+	:quri
+	:bricabrac.shell)
 
   (:import-from #:osicat-posix
 		#:stat
