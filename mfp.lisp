@@ -73,12 +73,13 @@
   (make-instance (if *xml-node* 'xml-entry 'entry)
                  :index index
                  :title title
-                 :link (parse-uri link)))
+                 :link (fix-uri (uri link))))
 
 (defun fix-uri (uri)
   (let ((uri (copy-uri uri)))
-    (setf (uri-path uri)
-	  (url-encode (uri-path uri)))))
+    (prog1 uri
+      (setf (uri-path uri)
+	    (url-encode (subseq (uri-path uri) 1))))))
 
 ;;;; HTTP
 
@@ -97,6 +98,7 @@
   ($ (initialize (request-rss))))
 
 (defun fetch ()
+  (declare (optimize (debug 3)))
   ($ (initialize (rss-document))
     (find "item")
     (combine ($1)
@@ -105,7 +107,7 @@
     (map (lambda (list)
            (destructuring-bind (*xml-node* uri title) list
              (multiple-value-bind (index title) (parse-title title)
-               (entry index title uri)))))))
+	       (entry index title uri)))))))
 
 ;;;; DOWNLOAD
 
@@ -241,7 +243,7 @@
       (prog1 pathname
         (download-to-file (link entry)
                           pathname
-                          (and force :supersede))))))
+                          :if-exists (and force :supersede))))))
 
 ;;;; PARSING
 
@@ -271,7 +273,8 @@
     (lambda (&rest args)
       (rebind
        (handler-case (apply function args)
-         (error (e) (warn "caught error: ~a" e)))))))
+         (error (e)
+	   (warn "caught error: ~a" e)))))))
 
 ;;;; MAIN FUNCTIONS
 
