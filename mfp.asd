@@ -3,13 +3,12 @@
 	       #:DRAKMA
 	       #:CXML
 	       #:CL-PPCRE
-	       #:QURI
                #:PERCENT-ENCODING
+               #:PURI
 	       #:LPARALLEL
 	       #:UIOP
 	       #:OSICAT
-
-               #:BRICABRAC) ;; only the shell part
+               #:BRICABRAC/SHELL)
 
   :components ((:file "package")
 	       (:file "macros")

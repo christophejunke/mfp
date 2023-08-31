@@ -12,17 +12,18 @@
      (setf file (download entry)))
     ((not file)
      (multiple-value-setq (file entry) (mpv-random-file))))
-  (with-terminal-options ((:directory nil)
+  (with-terminal-options ((:directory :tmp)
                           (:title (format nil "[~d] ~a" (index entry) (title entry))
                            :when entry)
                           (:title (format nil "~a" (pathname-name file))
                            :unless entry)
                           (:term :shell
                             :unless (osicat-posix:getenv "DISPLAY")))
-    (terminal "mpv"
-              (namestring file)
-              (format nil "--volume=~a" volume)
-              (and jackp "--ao=jack"))))
+    (with-tmux-session ("music" "main" "0")
+      (terminal "mpv"
+                (namestring file)
+                (format nil "--volume=~a" volume)
+                (and jackp "--ao=jack")))))
 
 (defun mpv (&key (file (mpv-random-file)) (volume 50) (global t gp) (wait nil wp))
   (flet ((play () (play :file file :volume volume)))
@@ -39,7 +40,7 @@
        (values (setf *mpv-process* (play))
                file))
       (t
-       (with-terminal-options ((:wait wait))
+       (with-terminal-options ((:wait wait) (:hold wait))
          (play))))))
 
 (defclass %mpv-loop ()

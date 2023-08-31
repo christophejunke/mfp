@@ -1,5 +1,4 @@
 (defpackage :mfp
-
   (:use :alexandria
 	:bordeaux-threads
 	:common-lisp
@@ -7,7 +6,7 @@
 	:lparallel
 	:lquery
 	:ppcre
-	:quri
+	:puri
 	:bricabrac.shell)
 
   (:import-from #:osicat-posix

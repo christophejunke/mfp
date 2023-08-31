@@ -67,19 +67,21 @@
 (defclass xml-entry (entry)
   ((xml-node :initform *xml-node* :accessor xml-node)))
 
+(defun make-uri (string)
+  (let ((uri (uri string)))
+    (flet ((encode (s) (url-encode s :utf-8)))
+      (let* ((parts (split "/" (uri-path uri)))
+             (encoded (map-into parts #'encode parts))
+             (path (format nil "~{~a~^/~}" encoded)))
+        (merge-uris (make-instance 'uri :path path) uri)))))
+
 (defun entry (index title link)
   (check-type index (integer 1))
   (check-type title string)
   (make-instance (if *xml-node* 'xml-entry 'entry)
                  :index index
                  :title title
-                 :link (fix-uri (uri link))))
-
-(defun fix-uri (uri)
-  (let ((uri (copy-uri uri)))
-    (prog1 uri
-      (setf (uri-path uri)
-	    (url-encode (subseq (uri-path uri) 1))))))
+                 :link (make-uri link)))
 
 ;;;; HTTP
 
@@ -114,7 +116,7 @@
 (defgeneric encode-uri (uri)
   (:method ((str string))
     (encode-uri (uri str)))
-  (:method ((uri puri:uri) &aux (uri (copy-uri uri)))
+  (:method ((uri uri) &aux (uri (copy-uri uri)))
     (prog1 uri
       (flet ((encode (s) (percent-encoding:encode s)))
 	(destructuring-bind (keyword . path) (uri-parsed-path uri)
@@ -123,7 +125,7 @@
 
 (defun call-with-http-stream (uri function)
   (multiple-value-bind (body status headers reply stream closep message)
-      (http-request (render-uri uri nil) :force-binary t :want-stream t)
+      (http-request uri :preserve-uri t :force-binary t :want-stream t)
     (declare (ignore body headers reply))
     (unwind-protect (funcall function status stream message)
       (when closep (close stream)))))
