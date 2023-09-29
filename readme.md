@@ -7,9 +7,17 @@ Fetch RSS from http://musicforprogramming.net/ and download music.
     ;; download all missing entries in mfp:*path*
     (mfp:update)
 
+The list of currently downloaded files can be retrieved as follows:
+
+    ;; all files in mfp:*path* sorted by #'string-greaterp on their namestring
+    (mfp:existing-files)
+
+    ;; 10 least-recently accessed files
+    (subseq (mfp:existing-files #'< mfp:/atime) 0 10)
+
 # utilities
 
-    ;; fetch vector of (entry index title link) objects using RSS
+    ;; fetch vector of (mfp:entry index title link) objects using RSS
     (mfp:fetch)
 
     ;; download an entry as (mfp:path entry), which depends on mfp:*path*
@@ -26,4 +34,4 @@ Fetch RSS from http://musicforprogramming.net/ and download music.
 
 # errors
 
-A condition of type `request-failed` is signaled on errors.
+A condition of type `mfp:request-failed` is signaled on errors.
