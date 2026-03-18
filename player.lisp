@@ -10,6 +10,10 @@
   (cond
     (entry
      (setf file (download entry)))
+    ((numberp file)
+     (setf file
+           (download (or (find file *entries* :key #'index)
+                         (error "no such entry: ~d" file)))))
     ((not file)
      (multiple-value-setq (file entry) (mpv-random-file))))
   (with-terminal-options ((:directory :tmp)

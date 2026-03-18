@@ -90,6 +90,9 @@
    #:download-from-rss
    #:update
 
+   ;; mpv in tmux
+   #:play
+   
    ;; player
    #:mpv
    #:mpv-loop
